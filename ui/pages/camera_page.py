@@ -206,6 +206,13 @@ class CameraPage(QWidget):
             self.is_paused = True
         elif "预览中" in status or "previewing" in status.lower():
             self.is_paused = False
+        elif any(key in status for key in ["连接失败", "读取失败", "已停止", "未连接"]):
+            # Treat as "paused" so the Pause/Resume button acts like a reconnect/retry.
+            self.is_paused = True
+
+        if any(key in status for key in ["无法捕获帧", "示例图片不可用"]):
+            self.analyze_button.setEnabled(True)
+            self.analyze_button.setText(self.tr("Capture and Analyze"))
 
     def toggle_pause(self):
         if not self.is_paused:

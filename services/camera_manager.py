@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QImage
+from pathlib import Path
 
 
 class CameraManager(QObject):
@@ -17,7 +18,7 @@ class CameraManager(QObject):
     # Signal to provide a captured frame for analysis
     frame_captured = Signal(np.ndarray)
 
-    def __init__(self, device_id=0, frame_rate=30):
+    def __init__(self, device_id=0, frame_rate=30, fallback_image_path: str | None = None):
         super().__init__()
         self.device_id = device_id
         self.frame_rate = frame_rate
@@ -26,18 +27,53 @@ class CameraManager(QObject):
         self.timer.timeout.connect(self.read_frame)
         self._is_running = False
         self._is_paused = False
+        self._read_failures = 0
+        self._fallback_image_path = (
+            Path(fallback_image_path)
+            if fallback_image_path
+            else (Path(__file__).resolve().parent.parent / "data" / "test_image" / "2.jpg")
+        )
+        self._fallback_qimage: QImage | None = None
+        self._fallback_rgb_frame: np.ndarray | None = None
+
+    def _load_fallback_qimage(self) -> QImage:
+        if self._fallback_qimage is None:
+            if self._fallback_image_path.exists():
+                self._fallback_qimage = QImage(str(self._fallback_image_path))
+            else:
+                self._fallback_qimage = QImage()
+        return self._fallback_qimage
+
+    def _load_fallback_rgb_frame(self) -> np.ndarray | None:
+        if self._fallback_rgb_frame is None:
+            if not self._fallback_image_path.exists():
+                return None
+            bgr = cv2.imread(str(self._fallback_image_path))
+            if bgr is None:
+                return None
+            self._fallback_rgb_frame = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return self._fallback_rgb_frame
+
+    def _emit_fallback_preview(self, status: str | None = None) -> None:
+        fallback = self._load_fallback_qimage()
+        if not fallback.isNull():
+            self.new_frame.emit(fallback.copy())
+        if status:
+            self.status_changed.emit(status)
 
     @Slot()
     def start_preview(self):
         if not self._is_running:
             self.capture = cv2.VideoCapture(self.device_id)
             if not self.capture.isOpened():
-                self.status_changed.emit("摄像头连接失败")
+                self.status_changed.emit("Status: Preview")
                 self.capture = None
+                self._emit_fallback_preview()
                 return
             
             self._is_running = True
             self._is_paused = False
+            self._read_failures = 0
             self.timer.start(1000 // self.frame_rate)
             self.status_changed.emit("预览中")
         elif self._is_paused:
@@ -49,6 +85,7 @@ class CameraManager(QObject):
             self.timer.stop()
             self._is_running = False
             self._is_paused = False
+            self._read_failures = 0
             if self.capture:
                 self.capture.release()
                 self.capture = None
@@ -63,6 +100,9 @@ class CameraManager(QObject):
             
     @Slot()
     def resume_preview(self):
+        if not self._is_running:
+            self.start_preview()
+            return
         if self._is_running and self._is_paused:
             self.timer.start(1000 // self.frame_rate)
             self._is_paused = False
@@ -81,29 +121,48 @@ class CameraManager(QObject):
                 self.frame_captured.emit(rgb_frame)
             else:
                 self.status_changed.emit("无法捕获帧")
+        else:
+            rgb_frame = self._load_fallback_rgb_frame()
+            if rgb_frame is None:
+                self.status_changed.emit("摄像头未连接，且示例图片不可用")
+                return
+            self.status_changed.emit("摄像头未连接，使用示例图片分析...")
+            self.frame_captured.emit(rgb_frame.copy())
 
     def read_frame(self):
         if self.capture and self.capture.isOpened():
             ret, frame = self.capture.read()
             if ret:
+                self._read_failures = 0
                 # Convert from BGR (OpenCV default) to RGB
                 rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgb_image.shape
                 bytes_per_line = ch * w
                 qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
                 self.new_frame.emit(qt_image.copy()) # Emit a copy
+            else:
+                self._read_failures += 1
+                if self._read_failures >= 10:
+                    # Likely disconnected or in a bad state; fall back to sample preview.
+                    self.stop_preview()
+                    self._emit_fallback_preview("摄像头读取失败（显示示例图片）")
+        elif not self._is_running:
+            # Show a stable placeholder when the camera isn't running.
+            self._emit_fallback_preview()
 
     def __del__(self):
         self.stop_preview()
 
 # --- Worker thread for moving CameraManager off the main GUI thread ---
-def get_camera_manager_thread(device_id=0, frame_rate=30) -> (QThread, CameraManager):
+def get_camera_manager_thread(
+    device_id=0, frame_rate=30, fallback_image_path: str | None = None
+) -> (QThread, CameraManager):
     """
     Factory function to create and set up a CameraManager in its own thread.
     This is the recommended way to use it to avoid blocking the GUI.
     """
     thread = QThread()
-    camera_manager = CameraManager(device_id, frame_rate)
+    camera_manager = CameraManager(device_id, frame_rate, fallback_image_path=fallback_image_path)
     camera_manager.moveToThread(thread)
 
     # When the thread starts, automatically start the camera preview

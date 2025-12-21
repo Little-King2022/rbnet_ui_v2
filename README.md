@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a **PySide6-based User Interface** for the RBNet Rice Blast Field Survey tool. It is designed to run on embedded systems like the **NVIDIA Jetson Nano** or **Jetson Orin Nano** equipped with a USB camera and a touchscreen.
+This project is a **PySide6-based User Interface** for the RBNet Rice Blast Field Survey tool. It is designed to run on embedded systems **NVIDIA Jetson Orin Nano** equipped with a USB camera and a touchscreen.
 
 The application serves as a field data collection tool, allowing users to capture images of rice leaves, input field metadata, and simulate disease severity analysis (simulating the RBNet deep learning model).
 

@@ -94,7 +94,8 @@ class MainWindow(QMainWindow):
         # Add permanent widgets to the right side
         self.software_name_label = QLabel()
         self.time_label = QLabel("00:00")
-        self.date_label = QLabel(datetime.now().strftime("%Y-%m-%d"))
+        # self.date_label = QLabel(datetime.now().strftime("%Y-%m-%d"))
+        self.date_label = QLabel("2025-11-20")
 
         status_bar.addPermanentWidget(self.date_label)
         status_bar.addPermanentWidget(self.time_label)
