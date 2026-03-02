@@ -31,7 +31,7 @@ class CameraManager(QObject):
         self._fallback_image_path = (
             Path(fallback_image_path)
             if fallback_image_path
-            else (Path(__file__).resolve().parent.parent / "data" / "test_image" / "2.jpg")
+            else (Path(__file__).resolve().parent.parent / "data" / "test_image" / "IMG_20250324_103853.jpg")
         )
         self._fallback_qimage: QImage | None = None
         self._fallback_rgb_frame: np.ndarray | None = None

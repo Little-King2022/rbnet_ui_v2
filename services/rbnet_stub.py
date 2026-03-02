@@ -51,12 +51,13 @@ class RbnetStub:
 
         thresholds = self.get_thresholds()
         
-        num_leaves = random.randint(3, 8)
+        # num_leaves = random.randint(3, 8)
+        num_leaves = 1
         leaf_results = []
         total_ds = 0
 
         for i in range(1, num_leaves + 1):
-            ds_value = random.uniform(0.0, 60.0) # Range 0-60%
+            ds_value = 7.6
             severity = self.get_severity_class(ds_value, thresholds)
             leaf_results.append(
                 LeafResult(

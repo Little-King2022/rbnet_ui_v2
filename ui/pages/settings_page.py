@@ -15,7 +15,8 @@ from PySide6.QtWidgets import (
     QListWidget,
     QLineEdit,
     QInputDialog,
-    QApplication
+    QApplication,
+    QSizePolicy
 )
 from services.data_manager import DataManager
 from services.i18n_manager import I18nManager
@@ -120,6 +121,7 @@ class SettingsPage(QWidget):
         self.settings = QSettings("RBNet", "FieldSurvey")
         self.data_manager = DataManager()
         self.i18n_manager = I18nManager()
+        self._is_loading_settings = False
         self.init_ui()
         self.load_settings()
 
@@ -158,12 +160,11 @@ class SettingsPage(QWidget):
         self.system_group.setTitle(self.tr("Data & System"))
         self.clear_data_button.setText(self.tr("Clear All Local Records"))
         
-        # Labels in Form Layouts are tricky to update directly if we don't store ref
-        # Strategy: Iterate layout or store labels.
-        # For simplicity in this demo, I will just set titles. 
-        # Ideally, form layout labels should be QLabels that we store.
-        self.label_mild.setText(self.tr("Mild Upper Bound:"))
-        self.label_mod.setText(self.tr("Moderate Upper Bound:"))
+        # DS threshold row labels
+        self.label_mild.setText(self.tr("Mild Symptoms: "))
+        self.label_mod.setText(self.tr("Moderate Symptoms: "))
+        self.label_sev.setText(self.tr("Severe Symptoms: "))
+        
         self.label_res.setText(self.tr("Resolution:"))
         self.label_rot.setText(self.tr("Rotation:"))
 
@@ -185,29 +186,88 @@ class SettingsPage(QWidget):
         # --- DS Thresholds ---
         self.ds_group = QGroupBox()
         ds_layout = QFormLayout(self.ds_group)
+        ds_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        ds_layout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        ds_layout.setFormAlignment(Qt.AlignTop)
+        ds_layout.setHorizontalSpacing(10)
+        ds_layout.setVerticalSpacing(6)
         
+        # Mild Symptoms: 0% ~ mild_threshold
+        self.min_mild = QLabel("0%")
+        self.min_mild.setFixedWidth(50)
+        self.min_mild.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.sep_mild = QLabel("~")
+        self.sep_mild.setFixedWidth(14)
+        self.sep_mild.setAlignment(Qt.AlignCenter)
         self.mild_threshold = QSpinBox()
         self.mild_threshold.setRange(1, 100)
         self.mild_threshold.setSuffix(" %")
         self.mild_threshold.valueChanged.connect(self.save_settings)
 
+        self.mild_row = QWidget()
+        mild_row_layout = QHBoxLayout(self.mild_row)
+        mild_row_layout.setContentsMargins(0, 0, 0, 0)
+        mild_row_layout.setSpacing(6)
+        mild_row_layout.addWidget(self.min_mild)
+        mild_row_layout.addWidget(self.sep_mild)
+        mild_row_layout.addWidget(self.mild_threshold)
+
+        # Moderate Symptoms: mild_threshold % ~ moderate_threshold
+        self.min_mod = QLabel()
+        self.min_mod.setFixedWidth(50)
+        self.min_mod.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.sep_mod = QLabel("~")
+        self.sep_mod.setFixedWidth(14)
+        self.sep_mod.setAlignment(Qt.AlignCenter)
         self.moderate_threshold = QSpinBox()
         self.moderate_threshold.setRange(1, 100)
         self.moderate_threshold.setSuffix(" %")
         self.moderate_threshold.valueChanged.connect(self.save_settings)
 
+        self.mod_row = QWidget()
+        mod_row_layout = QHBoxLayout(self.mod_row)
+        mod_row_layout.setContentsMargins(0, 0, 0, 0)
+        mod_row_layout.setSpacing(6)
+        mod_row_layout.addWidget(self.min_mod)
+        mod_row_layout.addWidget(self.sep_mod)
+        mod_row_layout.addWidget(self.moderate_threshold)
+
+        # Severe Symptoms: moderate_threshold % ~ 100%
+        self.min_sev = QLabel()
+        self.min_sev.setFixedWidth(50)
+        self.min_sev.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.sep_sev = QLabel("~")
+        self.sep_sev.setFixedWidth(14)
+        self.sep_sev.setAlignment(Qt.AlignCenter)
+        self.max_sev = QLabel("100%")
+        self.max_sev.setFixedWidth(50)
+        self.max_sev.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        self.sev_row = QWidget()
+        self.sev_row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        sev_row_layout = QHBoxLayout(self.sev_row)
+        sev_row_layout.setContentsMargins(0, 0, 0, 0)
+        sev_row_layout.setSpacing(6)
+        sev_row_layout.addWidget(self.min_sev)
+        sev_row_layout.addWidget(self.sep_sev)
+        sev_row_layout.addWidget(self.max_sev)
+        sev_row_layout.addStretch(1)
+
         self.label_mild = QLabel()
-        ds_layout.addRow(self.label_mild, self.mild_threshold)
+        ds_layout.addRow(self.label_mild, self.mild_row)
         
         self.label_mod = QLabel()
-        ds_layout.addRow(self.label_mod, self.moderate_threshold)
+        ds_layout.addRow(self.label_mod, self.mod_row)
+
+        self.label_sev = QLabel()
+        ds_layout.addRow(self.label_sev, self.sev_row)
 
         # --- Camera Settings ---
         self.camera_group = QGroupBox()
         camera_layout = QFormLayout(self.camera_group)
 
         self.resolution_combo = QComboBox()
-        self.resolution_combo.addItems(["640x480", "1280x720", "1920x1080"])
+        self.resolution_combo.addItems(["1024x768", "1920x1440"])
         self.resolution_combo.currentTextChanged.connect(self.save_settings)
         
         self.rotation_combo = QComboBox()
@@ -235,6 +295,8 @@ class SettingsPage(QWidget):
         layout.addWidget(self.system_group)
         layout.addStretch()
 
+        self._update_ds_range_labels()
+
     def init_options_tab(self):
         layout = QHBoxLayout(self.options_tab)
         
@@ -258,26 +320,77 @@ class SettingsPage(QWidget):
         layout.addWidget(self.stage_manager)
 
     def load_settings(self):
+        self._is_loading_settings = True
+        self.mild_threshold.blockSignals(True)
+        self.moderate_threshold.blockSignals(True)
+        self.resolution_combo.blockSignals(True)
+        self.rotation_combo.blockSignals(True)
         # Thresholds
-        self.mild_threshold.setValue(int(self.settings.value("thresholds/mild", 10)))
-        self.moderate_threshold.setValue(int(self.settings.value("thresholds/moderate", 30)))
+        # Defaults: 0-5, 5-15, 15-100
+        if not self.settings.contains("thresholds/mild"):
+            self.settings.setValue("thresholds/mild", 5)
+        if not self.settings.contains("thresholds/moderate"):
+            self.settings.setValue("thresholds/moderate", 15)
+
+        self.mild_threshold.setValue(int(self.settings.value("thresholds/mild", 5)))
+        self.moderate_threshold.setValue(int(self.settings.value("thresholds/moderate", 15)))
+        self._enforce_threshold_constraints()
+        self._update_ds_range_labels()
         
         # Camera
-        res = self.settings.value("camera/resolution", "640x480")
+        res = self.settings.value("camera/resolution", "1024x768")
         rot = self.settings.value("camera/rotation", "0°")
         self.resolution_combo.setCurrentText(str(res))
         self.rotation_combo.setCurrentText(str(rot))
+
+        self.mild_threshold.blockSignals(False)
+        self.moderate_threshold.blockSignals(False)
+        self.resolution_combo.blockSignals(False)
+        self.rotation_combo.blockSignals(False)
+        self._is_loading_settings = False
 
     def change_language(self, index):
         lang_code = self.lang_combo.itemData(index)
         self.i18n_manager.set_language(lang_code)
 
     def save_settings(self):
+        if getattr(self, "_is_loading_settings", False):
+            return
+        self._enforce_threshold_constraints()
+        self._update_ds_range_labels()
         self.settings.setValue("thresholds/mild", self.mild_threshold.value())
         self.settings.setValue("thresholds/moderate", self.moderate_threshold.value())
         self.settings.setValue("camera/resolution", self.resolution_combo.currentText())
         self.settings.setValue("camera/rotation", self.rotation_combo.currentText())
         self.notify_settings_change()
+
+    def _enforce_threshold_constraints(self):
+        """Keep thresholds consistent: mild_max <= moderate_max.
+
+        Per requirement: moderate min equals mild max.
+        We allow equality, and auto-correct when user crosses values.
+        """
+        mild_value = int(self.mild_threshold.value())
+        moderate_value = int(self.moderate_threshold.value())
+
+        if mild_value > moderate_value:
+            self.moderate_threshold.blockSignals(True)
+            self.moderate_threshold.setValue(mild_value)
+            self.moderate_threshold.blockSignals(False)
+
+        # Keep spinbox limits aligned (allow equality)
+        self.mild_threshold.blockSignals(True)
+        self.moderate_threshold.blockSignals(True)
+        self.mild_threshold.setMaximum(self.moderate_threshold.value())
+        self.moderate_threshold.setMinimum(self.mild_threshold.value())
+        self.mild_threshold.blockSignals(False)
+        self.moderate_threshold.blockSignals(False)
+
+    def _update_ds_range_labels(self):
+        mild_max = int(self.mild_threshold.value())
+        moderate_max = int(self.moderate_threshold.value())
+        self.min_mod.setText(f"{mild_max}%")
+        self.min_sev.setText(f"{moderate_max}%")
 
     def notify_settings_change(self):
         self.settings_changed.emit({

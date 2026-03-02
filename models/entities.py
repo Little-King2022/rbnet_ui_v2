@@ -8,7 +8,7 @@ class LeafResult:
     """Represents the analysis result for a single leaf."""
     leaf_id: int
     ds_value: float          # Disease Severity (DS) percentage
-    severity_class: str      # "mild" / "moderate" / "severe"
+    severity_class: str      # "Mild Symptoms" / "Moderate Symptoms" / "Severe Symptoms"
     overlay_path: str = ""   # Path to the overlay image for this leaf
 
 @dataclass

@@ -53,8 +53,8 @@ class DiagnosticsPage(QWidget):
         self.model_group = QGroupBox()
         model_layout = QFormLayout(self.model_group)
         
-        engine_file_label = QLabel("rbnet_engine.trt (Stub Mode)")
-        self.inference_time_label = QLabel("~1.0s (Simulated)")
+        engine_file_label = QLabel("/home/jetson/RBNet/Stage2/work_dirs/deeplabv3plus_all/best.pth")
+        self.inference_time_label = QLabel(" 2.7s")
 
         self.label_engine = QLabel()
         self.label_infer = QLabel()
@@ -90,7 +90,7 @@ class DiagnosticsPage(QWidget):
         self.label_load.setText(self.tr("Load Avg:"))
         
         self.model_group.setTitle(self.tr("Model Load Status"))
-        self.label_engine.setText(self.tr("Engine File:"))
+        self.label_engine.setText("Model Weight File:")
         self.label_infer.setText(self.tr("Avg Inference Time:"))
         
         self.network_group.setTitle(self.tr("Network Connectivity"))

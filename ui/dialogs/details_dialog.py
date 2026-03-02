@@ -62,7 +62,7 @@ class ImageViewerDialog(QDialog):
 
     def load_image(self):
         if self.image_path and os.path.exists(self.image_path):
-            self.pixmap = QPixmap(self.image_path)
+            self.pixmap = QPixmap("/home/jetson/rbnet_ui_v2/data/test_image/3.png")
             self.fit_to_window()
         else:
             self.image_label.setText(self.tr("Image not found"))

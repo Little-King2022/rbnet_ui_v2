@@ -88,14 +88,14 @@ class MainWindow(QMainWindow):
         status_bar = self.statusBar()
         
         # Add normal widgets to the left side
-        self.camera_status_label = QLabel("Camera: Initializing...")
+        self.camera_status_label = QLabel("Camera Initializing...")
         status_bar.addWidget(self.camera_status_label)
 
         # Add permanent widgets to the right side
         self.software_name_label = QLabel()
         self.time_label = QLabel("00:00")
         # self.date_label = QLabel(datetime.now().strftime("%Y-%m-%d"))
-        self.date_label = QLabel("2025-11-20")
+        self.date_label = QLabel("2025-03-24")
 
         status_bar.addPermanentWidget(self.date_label)
         status_bar.addPermanentWidget(self.time_label)
@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
         """Updates the camera status label in the status bar."""
         # Note: status comes from CameraPage, which might be translated or not.
         # Ideally status strings should be keys or translated at source.
-        self.camera_status_label.setText(f"{self.tr('Camera')}: {status}")
+        self.camera_status_label.setText(f"{self.tr('Camera')} {status}")
 
     def update_time(self):
         self.time_label.setText(datetime.now().strftime("%H:%M:%S "))
